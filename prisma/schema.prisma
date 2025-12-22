@@ -81,3 +81,226 @@ model RolePermission {
   @@id([roleId, permissionId])
   @@index([permissionId])
 }
+
+enum VendorType {
+  INVENTORY
+  SERVICE
+  UTILITY
+  OTHER
+}
+
+model Vendor {
+  id   Int        @id @default(autoincrement())
+  name String     @unique
+  type VendorType @default(OTHER)
+
+  // contact information
+  phone         String?
+  email         String?
+  address       String?
+  website       String?
+  accountNumber String?
+
+  // inventory-specific fields
+  requiresSku      Boolean @default(false)
+  requiresDiscount Boolean @default(false)
+  requiresTax      Boolean @default(false)
+  requiresShipping Boolean @default(false)
+
+  active Boolean @default(true)
+
+  productSpecs ProductSpec[]
+  invoices     Invoice[]
+  expenses     Expense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+  @@index([type, active])
+}
+
+model ExpenseCategory {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  expenses Expense[]
+}
+
+enum ExpenseSource {
+  INVENTORY_INVOICE
+  MANUAL
+}
+
+model Expense {
+  id     Int           @id @default(autoincrement())
+  source ExpenseSource @default(MANUAL)
+
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  vendorId Int
+
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId Int
+
+  date  DateTime
+  total Decimal  @default(0)
+  notes String?
+
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId Int?     @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([date])
+  @@index([source])
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+}
+
+model Invoice {
+  id Int @id @default(autoincrement())
+
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  vendorId Int
+
+  date          DateTime
+  number        String
+  paymentStatus PaymentStatus @default(PENDING)
+
+  discount Decimal @default(0)
+  tax      Decimal @default(0)
+  shipping Decimal @default(0)
+  total    Decimal @default(0)
+
+  notes String?
+
+  lines   InvoiceLine[]
+  expense Expense?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vendorId, number])
+  @@index([vendorId])
+  @@index([date])
+  @@index([paymentStatus])
+}
+
+model InvoiceLine {
+  id Int @id @default(autoincrement())
+
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId Int
+
+  productSpec   ProductSpec @relation(fields: [productSpecId], references: [id], onDelete: Restrict)
+  productSpecId Int
+
+  quantity  Decimal @default(1)
+  unitPrice Decimal @default(0)
+  discount  Decimal @default(0)
+  tax       Decimal @default(0)
+  subtotal  Decimal @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([productSpecId])
+}
+
+model ProductCategory {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  products Product[]
+}
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  name    String
+  name_kr String?
+
+  category   ProductCategory @relation(fields: [categoryId], references: [id])
+  categoryId Int
+
+  unitGroup   UnitGroup @relation(fields: [unitGroupId], references: [id])
+  unitGroupId Int
+
+  active Boolean @default(true)
+
+  specs ProductSpec[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, unitGroupId])
+  @@index([categoryId])
+}
+
+model ProductSpec {
+  id Int @id @default(autoincrement())
+
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+
+  vendor   Vendor @relation(fields: [vendorId], references: [id])
+  vendorId Int
+
+  unit   Unit @relation(fields: [unitId], references: [id])
+  unitId Int
+
+  description String
+  caseSize    Int
+  unitSize    Decimal
+  brand       String  @default("")
+  sku         String? @unique
+
+  active Boolean @default(true)
+
+  invoiceLines InvoiceLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, vendorId, brand, caseSize, unitSize])
+  @@index([productId])
+  @@index([vendorId])
+}
+
+model UnitGroup {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  units    Unit[]
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Unit {
+  id           Int    @id @default(autoincrement())
+  name         String
+  abbreviation String
+
+  unitGroup   UnitGroup @relation(fields: [unitGroupId], references: [id], onDelete: Cascade)
+  unitGroupId Int
+
+  factor Decimal
+
+  productSpecs ProductSpec[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([unitGroupId, name])
+  @@unique([unitGroupId, abbreviation])
+  @@index([unitGroupId])
+}

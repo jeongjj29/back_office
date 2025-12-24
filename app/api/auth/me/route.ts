@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@server/auth/session";
-import { errors, toResponseError } from "@lib/errors";
+import { toResponseError } from "@lib/errors";
+import { requireAuth } from "@server/auth/guards";
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      throw errors.unauthorized("Not authenticated");
-    }
+    const user = await requireAuth();
 
     return NextResponse.json({
       user: {

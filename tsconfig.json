@@ -2,27 +2,25 @@
   "compilerOptions": {
     "target": "ES2023",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
-
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
-
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-
     "esModuleInterop": true,
-
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
-
     "paths": {
       "@/*": ["./*"]
     },
-
-    "plugins": [{ "name": "next" }]
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "include": [
     "next-env.d.ts",

@@ -8,7 +8,7 @@ export default function SignInPage() {
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
           <p className="text-sm text-gray-600">
-            Access the back office. Don't have an account? Ask an admin.
+            Access the back office. Don`&apos;`t have an account? Ask an admin.
           </p>
         </div>
         <SignInForm />

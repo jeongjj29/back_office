@@ -3,7 +3,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { prisma } from "@lib/prisma";
 import type { User } from "@generated/prisma/client";
 
-const SESSION_COOKIE = "session_token";
+export const SESSION_COOKIE = "session_token";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8; // 8 hours
 
 function hashToken(raw: string): string {
@@ -61,7 +61,7 @@ export async function clearSession() {
 }
 
 export type CurrentUser = User & {
-  role: { permissions: { permission: { key: string } }[] };
+  role: { key: string; permissions: { permission: { key: string } }[] };
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {

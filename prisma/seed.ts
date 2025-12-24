@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import { hashPassword } from "@/server/auth/password";
 
 type RoleSeed = {
   key: string;
@@ -348,10 +349,43 @@ async function seedVendorsProductsAndSpecs() {
   }
 }
 
+async function seedAdminUser() {
+  const adminRole = await prisma.role.findUnique({
+    where: { key: "ADMIN" },
+  });
+  if (!adminRole) {
+    console.warn("ADMIN role not found; skipping admin user seed");
+    return;
+  }
+
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@example.com";
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "changeme";
+  const adminName = process.env.SEED_ADMIN_NAME ?? "Admin";
+  const passwordHash = hashPassword(adminPassword);
+
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    create: {
+      email: adminEmail,
+      name: adminName,
+      passwordHash,
+      roleId: adminRole.id,
+    },
+    update: {
+      name: adminName,
+      passwordHash,
+      roleId: adminRole.id,
+    },
+  });
+
+  console.log(`Admin user ready: ${adminEmail} / ${adminPassword}`);
+}
+
 async function main() {
   await seedPermissionsAndRoles();
   await seedUnits();
   await seedVendorsProductsAndSpecs();
+  await seedAdminUser();
 }
 
 main()

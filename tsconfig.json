@@ -13,8 +13,15 @@
     "esModuleInterop": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@app/*": ["app/*"],
+      "@components/*": ["components/*"],
+      "@features/*": ["features/*"],
+      "@generated/*": ["generated/*"],
+      "@lib/*": ["lib/*"],
+      "@server/*": ["server/*"]
     },
     "plugins": [
       {

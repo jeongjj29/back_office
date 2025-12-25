@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function SignInForm() {
+type SignInFormProps = {
+  redirectTo?: string;
+};
+
+export function SignInForm({ redirectTo }: SignInFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +29,7 @@ export function SignInForm() {
         setError(data?.error?.message ?? "Login failed");
         return;
       }
-      router.push("/");
+      router.push(redirectTo || "/");
       router.refresh();
     } catch {
       setError("Login failed");

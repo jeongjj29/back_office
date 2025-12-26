@@ -1,17 +1,8 @@
 import { prisma } from "@lib/prisma";
 import { errors } from "@lib/errors";
 import { Prisma } from "@generated/prisma/client";
-
-type CreateProductSpecInput = {
-  productId: number;
-  vendorId: number;
-  unitId: number;
-  description: string;
-  caseSize: number;
-  unitSize: string | number;
-  brand?: string | null;
-  sku?: string | null;
-};
+import { productSpecSchema } from "./schema";
+import type { CreateProductSpecInput } from "./types";
 
 export async function listProductSpecs() {
   return prisma.productSpec.findMany({
@@ -24,33 +15,41 @@ export async function listProductSpecs() {
   });
 }
 
+function parseProductSpec(raw: CreateProductSpecInput) {
+  const result = productSpecSchema.safeParse(raw);
+  if (!result.success) {
+    throw errors.validation("Invalid product spec data", result.error.flatten().fieldErrors);
+  }
+  const { description, brand, sku, ...rest } = result.data;
+  return {
+    ...rest,
+    description,
+    brand: brand ?? "",
+    sku: sku ?? null,
+  } satisfies CreateProductSpecInput;
+}
+
 export async function createProductSpec(input: CreateProductSpecInput) {
-  const description = input.description?.trim();
-  if (!description) {
-    throw errors.validation("Description is required");
-  }
-  if (!input.caseSize || input.caseSize <= 0) {
-    throw errors.validation("Case size must be greater than zero");
-  }
+  const parsed = parseProductSpec(input);
 
   const [product, vendor, unit] = await Promise.all([
-    prisma.product.findUnique({ where: { id: input.productId } }),
-    prisma.vendor.findUnique({ where: { id: input.vendorId } }),
-    prisma.unit.findUnique({ where: { id: input.unitId } }),
+    prisma.product.findUnique({ where: { id: parsed.productId } }),
+    prisma.vendor.findUnique({ where: { id: parsed.vendorId } }),
+    prisma.unit.findUnique({ where: { id: parsed.unitId } }),
   ]);
 
   if (!product) throw errors.validation("Product not found");
   if (!vendor) throw errors.validation("Vendor not found");
   if (!unit) throw errors.validation("Unit not found");
 
-  const unitSize = new Prisma.Decimal(input.unitSize);
+  const unitSize = new Prisma.Decimal(parsed.unitSize);
 
   const existing = await prisma.productSpec.findFirst({
     where: {
-      productId: input.productId,
-      vendorId: input.vendorId,
-      brand: input.brand ?? "",
-      caseSize: input.caseSize,
+      productId: parsed.productId,
+      vendorId: parsed.vendorId,
+      brand: parsed.brand ?? "",
+      caseSize: parsed.caseSize,
       unitSize,
     },
   });
@@ -61,26 +60,20 @@ export async function createProductSpec(input: CreateProductSpecInput) {
 
   return prisma.productSpec.create({
     data: {
-      productId: input.productId,
-      vendorId: input.vendorId,
-      unitId: input.unitId,
-      description,
-      caseSize: input.caseSize,
+      productId: parsed.productId,
+      vendorId: parsed.vendorId,
+      unitId: parsed.unitId,
+      description: parsed.description,
+      caseSize: parsed.caseSize,
       unitSize,
-      brand: input.brand ?? "",
-      sku: input.sku ?? null,
+      brand: parsed.brand ?? "",
+      sku: parsed.sku ?? null,
     },
   });
 }
 
 export async function updateProductSpec(id: number, input: CreateProductSpecInput) {
-  const description = input.description?.trim();
-  if (!description) {
-    throw errors.validation("Description is required");
-  }
-  if (!input.caseSize || input.caseSize <= 0) {
-    throw errors.validation("Case size must be greater than zero");
-  }
+  const parsed = parseProductSpec(input);
 
   const spec = await prisma.productSpec.findUnique({ where: { id } });
   if (!spec) {
@@ -88,23 +81,23 @@ export async function updateProductSpec(id: number, input: CreateProductSpecInpu
   }
 
   const [product, vendor, unit] = await Promise.all([
-    prisma.product.findUnique({ where: { id: input.productId } }),
-    prisma.vendor.findUnique({ where: { id: input.vendorId } }),
-    prisma.unit.findUnique({ where: { id: input.unitId } }),
+    prisma.product.findUnique({ where: { id: parsed.productId } }),
+    prisma.vendor.findUnique({ where: { id: parsed.vendorId } }),
+    prisma.unit.findUnique({ where: { id: parsed.unitId } }),
   ]);
 
   if (!product) throw errors.validation("Product not found");
   if (!vendor) throw errors.validation("Vendor not found");
   if (!unit) throw errors.validation("Unit not found");
 
-  const unitSize = new Prisma.Decimal(input.unitSize);
+  const unitSize = new Prisma.Decimal(parsed.unitSize);
 
   const conflict = await prisma.productSpec.findFirst({
     where: {
-      productId: input.productId,
-      vendorId: input.vendorId,
-      brand: input.brand ?? "",
-      caseSize: input.caseSize,
+      productId: parsed.productId,
+      vendorId: parsed.vendorId,
+      brand: parsed.brand ?? "",
+      caseSize: parsed.caseSize,
       unitSize,
       NOT: { id },
     },
@@ -117,14 +110,14 @@ export async function updateProductSpec(id: number, input: CreateProductSpecInpu
   return prisma.productSpec.update({
     where: { id },
     data: {
-      productId: input.productId,
-      vendorId: input.vendorId,
-      unitId: input.unitId,
-      description,
-      caseSize: input.caseSize,
+      productId: parsed.productId,
+      vendorId: parsed.vendorId,
+      unitId: parsed.unitId,
+      description: parsed.description,
+      caseSize: parsed.caseSize,
       unitSize,
-      brand: input.brand ?? "",
-      sku: input.sku ?? null,
+      brand: parsed.brand ?? "",
+      sku: parsed.sku ?? null,
     },
   });
 }

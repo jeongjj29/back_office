@@ -1,17 +1,24 @@
 import { prisma } from "@lib/prisma";
 import { errors } from "@lib/errors";
 import { Prisma } from "@generated/prisma/client";
+import { unitGroupSchema, unitSchema } from "./schema";
+import type { CreateUnitGroupInput, CreateUnitInput } from "./types";
 
-type CreateUnitGroupInput = {
-  name: string;
-};
+function parseUnitGroup(raw: CreateUnitGroupInput) {
+  const result = unitGroupSchema.safeParse(raw);
+  if (!result.success) {
+    throw errors.validation("Invalid unit group data", result.error.flatten().fieldErrors);
+  }
+  return result.data;
+}
 
-type CreateUnitInput = {
-  unitGroupId: number;
-  name: string;
-  abbreviation: string;
-  factor: string | number;
-};
+function parseUnit(raw: CreateUnitInput) {
+  const result = unitSchema.safeParse(raw);
+  if (!result.success) {
+    throw errors.validation("Invalid unit data", result.error.flatten().fieldErrors);
+  }
+  return result.data;
+}
 
 export async function listUnitGroupsWithUnits() {
   return prisma.unitGroup.findMany({
@@ -25,10 +32,7 @@ export async function listUnitGroupsWithUnits() {
 }
 
 export async function createUnitGroup(input: CreateUnitGroupInput) {
-  const name = input.name?.trim();
-  if (!name) {
-    throw errors.validation("Unit group name is required");
-  }
+  const { name } = parseUnitGroup(input);
 
   const existing = await prisma.unitGroup.findUnique({ where: { name } });
   if (existing) {
@@ -41,10 +45,7 @@ export async function createUnitGroup(input: CreateUnitGroupInput) {
 }
 
 export async function updateUnitGroup(id: number, name: string) {
-  const cleaned = name?.trim();
-  if (!cleaned) {
-    throw errors.validation("Unit group name is required");
-  }
+  const { name: cleaned } = parseUnitGroup({ name });
 
   const existing = await prisma.unitGroup.findUnique({ where: { id } });
   if (!existing) {
@@ -73,21 +74,17 @@ export async function deleteUnitGroup(id: number) {
 }
 
 export async function createUnit(input: CreateUnitInput) {
-  const name = input.name?.trim();
-  const abbreviation = input.abbreviation?.trim();
-  if (!name || !abbreviation) {
-    throw errors.validation("Unit name and abbreviation are required");
-  }
+  const parsed = parseUnit(input);
 
-  const group = await prisma.unitGroup.findUnique({ where: { id: input.unitGroupId } });
+  const group = await prisma.unitGroup.findUnique({ where: { id: parsed.unitGroupId } });
   if (!group) {
     throw errors.validation("Unit group not found");
   }
 
-  const factor = new Prisma.Decimal(input.factor);
+  const factor = new Prisma.Decimal(parsed.factor);
 
   const existing = await prisma.unit.findFirst({
-    where: { unitGroupId: input.unitGroupId, OR: [{ name }, { abbreviation }] },
+    where: { unitGroupId: parsed.unitGroupId, OR: [{ name: parsed.name }, { abbreviation: parsed.abbreviation }] },
   });
   if (existing) {
     throw errors.conflict("Unit name or abbreviation already exists in this group");
@@ -95,37 +92,33 @@ export async function createUnit(input: CreateUnitInput) {
 
   return prisma.unit.create({
     data: {
-      name,
-      abbreviation,
+      name: parsed.name,
+      abbreviation: parsed.abbreviation,
       factor,
-      unitGroupId: input.unitGroupId,
+      unitGroupId: parsed.unitGroupId,
     },
   });
 }
 
 export async function updateUnit(id: number, input: CreateUnitInput) {
-  const name = input.name?.trim();
-  const abbreviation = input.abbreviation?.trim();
-  if (!name || !abbreviation) {
-    throw errors.validation("Unit name and abbreviation are required");
-  }
+  const parsed = parseUnit(input);
 
   const unit = await prisma.unit.findUnique({ where: { id } });
   if (!unit) {
     throw errors.notFound("Unit not found");
   }
 
-  const group = await prisma.unitGroup.findUnique({ where: { id: input.unitGroupId } });
+  const group = await prisma.unitGroup.findUnique({ where: { id: parsed.unitGroupId } });
   if (!group) {
     throw errors.validation("Unit group not found");
   }
 
-  const factor = new Prisma.Decimal(input.factor);
+  const factor = new Prisma.Decimal(parsed.factor);
 
   const conflict = await prisma.unit.findFirst({
     where: {
-      unitGroupId: input.unitGroupId,
-      OR: [{ name }, { abbreviation }],
+      unitGroupId: parsed.unitGroupId,
+      OR: [{ name: parsed.name }, { abbreviation: parsed.abbreviation }],
       NOT: { id },
     },
   });
@@ -136,10 +129,10 @@ export async function updateUnit(id: number, input: CreateUnitInput) {
   return prisma.unit.update({
     where: { id },
     data: {
-      name,
-      abbreviation,
+      name: parsed.name,
+      abbreviation: parsed.abbreviation,
       factor,
-      unitGroupId: input.unitGroupId,
+      unitGroupId: parsed.unitGroupId,
     },
   });
 }

@@ -1,12 +1,7 @@
 import { prisma } from "@lib/prisma";
 import { errors } from "@lib/errors";
-
-type CreateProductInput = {
-  name: string;
-  nameKr?: string | null;
-  categoryId: number;
-  unitGroupId: number;
-};
+import { productInputSchema } from "./schema";
+import type { CreateProductInput } from "./types";
 
 export async function listProducts() {
   return prisma.product.findMany({
@@ -18,24 +13,35 @@ export async function listProducts() {
   });
 }
 
-export async function createProduct(input: CreateProductInput) {
-  const name = input.name?.trim();
-  if (!name) {
-    throw errors.validation("Product name is required");
+function parseProductInput(raw: CreateProductInput) {
+  const result = productInputSchema.safeParse(raw);
+  if (!result.success) {
+    throw errors.validation("Invalid product data", result.error.flatten().fieldErrors);
   }
+  const { name, nameKr, categoryId, unitGroupId } = result.data;
+  return {
+    name,
+    nameKr: nameKr ?? null,
+    categoryId,
+    unitGroupId,
+  } satisfies CreateProductInput;
+}
 
-  const category = await prisma.productCategory.findUnique({ where: { id: input.categoryId } });
+export async function createProduct(input: CreateProductInput) {
+  const parsed = parseProductInput(input);
+
+  const category = await prisma.productCategory.findUnique({ where: { id: parsed.categoryId } });
   if (!category) {
     throw errors.validation("Product category not found");
   }
 
-  const unitGroup = await prisma.unitGroup.findUnique({ where: { id: input.unitGroupId } });
+  const unitGroup = await prisma.unitGroup.findUnique({ where: { id: parsed.unitGroupId } });
   if (!unitGroup) {
     throw errors.validation("Unit group not found");
   }
 
   const existing = await prisma.product.findUnique({
-    where: { name_unitGroupId: { name, unitGroupId: input.unitGroupId } },
+    where: { name_unitGroupId: { name: parsed.name, unitGroupId: parsed.unitGroupId } },
   });
   if (existing) {
     throw errors.conflict("Product already exists for this unit group");
@@ -43,39 +49,36 @@ export async function createProduct(input: CreateProductInput) {
 
   return prisma.product.create({
     data: {
-      name,
-      name_kr: input.nameKr?.trim() || null,
-      categoryId: input.categoryId,
-      unitGroupId: input.unitGroupId,
+      name: parsed.name,
+      name_kr: parsed.nameKr || null,
+      categoryId: parsed.categoryId,
+      unitGroupId: parsed.unitGroupId,
     },
   });
 }
 
 export async function updateProduct(id: number, input: CreateProductInput) {
-  const name = input.name?.trim();
-  if (!name) {
-    throw errors.validation("Product name is required");
-  }
+  const parsed = parseProductInput(input);
 
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) {
     throw errors.notFound("Product not found");
   }
 
-  const category = await prisma.productCategory.findUnique({ where: { id: input.categoryId } });
+  const category = await prisma.productCategory.findUnique({ where: { id: parsed.categoryId } });
   if (!category) {
     throw errors.validation("Product category not found");
   }
 
-  const unitGroup = await prisma.unitGroup.findUnique({ where: { id: input.unitGroupId } });
+  const unitGroup = await prisma.unitGroup.findUnique({ where: { id: parsed.unitGroupId } });
   if (!unitGroup) {
     throw errors.validation("Unit group not found");
   }
 
   const conflict = await prisma.product.findFirst({
     where: {
-      name,
-      unitGroupId: input.unitGroupId,
+      name: parsed.name,
+      unitGroupId: parsed.unitGroupId,
       NOT: { id },
     },
   });
@@ -86,10 +89,10 @@ export async function updateProduct(id: number, input: CreateProductInput) {
   return prisma.product.update({
     where: { id },
     data: {
-      name,
-      name_kr: input.nameKr?.trim() || null,
-      categoryId: input.categoryId,
-      unitGroupId: input.unitGroupId,
+      name: parsed.name,
+      name_kr: parsed.nameKr || null,
+      categoryId: parsed.categoryId,
+      unitGroupId: parsed.unitGroupId,
     },
   });
 }

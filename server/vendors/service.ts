@@ -1,16 +1,7 @@
 import { prisma } from "@lib/prisma";
 import { errors } from "@lib/errors";
-import type { VendorType } from "@generated/prisma/client";
-
-type CreateVendorInput = {
-  name: string;
-  type?: VendorType;
-  phone?: string | null;
-  email?: string | null;
-  address?: string | null;
-  website?: string | null;
-  accountNumber?: string | null;
-};
+import { vendorInputSchema } from "./schema";
+import type { CreateVendorInput } from "./types";
 
 export async function listVendors() {
   return prisma.vendor.findMany({
@@ -18,35 +9,46 @@ export async function listVendors() {
   });
 }
 
-export async function createVendor(input: CreateVendorInput) {
-  const name = input.name?.trim();
-  if (!name) {
-    throw errors.validation("Vendor name is required");
+function parseVendorInput(raw: CreateVendorInput) {
+  const result = vendorInputSchema.safeParse(raw);
+  if (!result.success) {
+    throw errors.validation("Invalid vendor data", result.error.flatten().fieldErrors);
   }
+  const { name, type, phone, email, address, website, accountNumber } = result.data;
+  return {
+    name,
+    type,
+    phone: phone ?? null,
+    email: email ?? null,
+    address: address ?? null,
+    website: website ?? null,
+    accountNumber: accountNumber ?? null,
+  } satisfies CreateVendorInput;
+}
 
-  const existing = await prisma.vendor.findUnique({ where: { name } });
+export async function createVendor(input: CreateVendorInput) {
+  const parsed = parseVendorInput(input);
+
+  const existing = await prisma.vendor.findUnique({ where: { name: parsed.name } });
   if (existing) {
     throw errors.conflict("Vendor name already exists");
   }
 
   return prisma.vendor.create({
     data: {
-      name,
-      type: input.type ?? "OTHER",
-      phone: input.phone?.trim() || null,
-      email: input.email?.trim() || null,
-      address: input.address?.trim() || null,
-      website: input.website?.trim() || null,
-      accountNumber: input.accountNumber?.trim() || null,
+      name: parsed.name,
+      type: parsed.type ?? "OTHER",
+      phone: parsed.phone,
+      email: parsed.email,
+      address: parsed.address,
+      website: parsed.website,
+      accountNumber: parsed.accountNumber,
     },
   });
 }
 
 export async function updateVendor(id: number, input: CreateVendorInput) {
-  const name = input.name?.trim();
-  if (!name) {
-    throw errors.validation("Vendor name is required");
-  }
+  const parsed = parseVendorInput(input);
 
   const vendor = await prisma.vendor.findUnique({ where: { id } });
   if (!vendor) {
@@ -54,7 +56,7 @@ export async function updateVendor(id: number, input: CreateVendorInput) {
   }
 
   const conflict = await prisma.vendor.findFirst({
-    where: { name, NOT: { id } },
+    where: { name: parsed.name, NOT: { id } },
   });
   if (conflict) {
     throw errors.conflict("Vendor name already exists");
@@ -63,13 +65,13 @@ export async function updateVendor(id: number, input: CreateVendorInput) {
   return prisma.vendor.update({
     where: { id },
     data: {
-      name,
-      type: input.type ?? vendor.type,
-      phone: input.phone?.trim() ?? vendor.phone,
-      email: input.email?.trim() ?? vendor.email,
-      address: input.address?.trim() ?? vendor.address,
-      website: input.website?.trim() ?? vendor.website,
-      accountNumber: input.accountNumber?.trim() ?? vendor.accountNumber,
+      name: parsed.name,
+      type: parsed.type ?? vendor.type,
+      phone: parsed.phone ?? vendor.phone,
+      email: parsed.email ?? vendor.email,
+      address: parsed.address ?? vendor.address,
+      website: parsed.website ?? vendor.website,
+      accountNumber: parsed.accountNumber ?? vendor.accountNumber,
     },
   });
 }

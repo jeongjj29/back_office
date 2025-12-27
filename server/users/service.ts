@@ -9,6 +9,12 @@ type CreateUserInput = {
   roleKey: string;
 };
 
+type UpdateUserInput = {
+  name?: string | null;
+  password?: string | null;
+  roleKey?: string;
+};
+
 export async function listUsers() {
   const users = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
@@ -75,4 +81,49 @@ export async function createUser(input: CreateUserInput) {
     roleName: user.role.name,
     createdAt: user.createdAt,
   };
+}
+
+export async function updateUser(id: number, input: UpdateUserInput) {
+  const user = await prisma.user.findUnique({ where: { id }, include: { role: true } });
+  if (!user) {
+    throw errors.notFound("User not found");
+  }
+
+  const data: Record<string, unknown> = {};
+
+  if (typeof input.name === "string") {
+    data.name = input.name.trim() || null;
+  }
+
+  if (input.password) {
+    data.passwordHash = hashPassword(input.password);
+  }
+
+  if (input.roleKey) {
+    const role = await prisma.role.findUnique({ where: { key: input.roleKey } });
+    if (!role) {
+      throw errors.validation("Role not found");
+    }
+    data.roleId = role.id;
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data,
+    include: { role: { select: { key: true, name: true } } },
+  });
+
+  return {
+    id: updated.id,
+    email: updated.email,
+    name: updated.name,
+    roleKey: updated.role.key,
+    roleName: updated.role.name,
+    createdAt: updated.createdAt,
+  };
+}
+
+export async function deleteUser(id: number) {
+  await prisma.session.deleteMany({ where: { userId: id } });
+  await prisma.user.delete({ where: { id } });
 }

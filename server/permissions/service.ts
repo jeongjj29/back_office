@@ -5,3 +5,12 @@ export async function listPermissions() {
     orderBy: { key: "asc" },
   });
 }
+
+export async function deletePermission(key: string) {
+  await prisma.rolePermission.deleteMany({
+    where: { permission: { key } },
+  });
+  await prisma.permission.delete({
+    where: { key },
+  });
+}

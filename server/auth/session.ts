@@ -61,7 +61,7 @@ export async function clearSession() {
 }
 
 export type CurrentUser = User & {
-  role: { key: string; permissions: { permission: { key: string } }[] };
+  role: { key: string; name: string; permissions: { permission: { key: string } }[] };
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {

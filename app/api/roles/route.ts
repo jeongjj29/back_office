@@ -19,7 +19,7 @@ export async function PUT(request: Request) {
     await requirePermission("ROLE_WRITE");
     const body = await request.json().catch(() => ({}));
     const permissions = Array.isArray(body.permissions)
-      ? body.permissions.filter((p): p is string => typeof p === "string")
+      ? body.permissions.filter((p: unknown): p is string => typeof p === "string")
       : [];
 
     const role = await updateRolePermissions(typeof body.key === "string" ? body.key : "", permissions);

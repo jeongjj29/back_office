@@ -18,10 +18,11 @@ export async function PUT(request: Request) {
   try {
     await requirePermission("ROLE_WRITE");
     const body = await request.json().catch(() => ({}));
-    const role = await updateRolePermissions(
-      typeof body.key === "string" ? body.key : "",
-      Array.isArray(body.permissions) ? body.permissions.filter((p) => typeof p === "string") : [],
-    );
+    const permissions = Array.isArray(body.permissions)
+      ? body.permissions.filter((p): p is string => typeof p === "string")
+      : [];
+
+    const role = await updateRolePermissions(typeof body.key === "string" ? body.key : "", permissions);
     return NextResponse.json({ role });
   } catch (error) {
     const { status, body } = toResponseError(error);

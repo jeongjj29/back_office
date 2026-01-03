@@ -5,8 +5,11 @@ export const unitGroupSchema = z.object({
 });
 
 export const unitSchema = z.object({
-  unitGroupId: z.number().int().positive(),
+  unitGroupId: z.coerce.number().int().positive(),
   name: z.string().trim().min(1, "Unit name is required"),
   abbreviation: z.string().trim().min(1, "Abbreviation is required"),
-  factor: z.union([z.string(), z.number()]),
+  factor: z.preprocess(
+    (value) => (typeof value === "string" ? value.trim() : value),
+    z.coerce.number().positive(),
+  ),
 });

@@ -1,4 +1,5 @@
 import { prisma } from "@lib/prisma";
+import { errors } from "@lib/errors";
 
 export async function listRoles() {
   return prisma.role.findMany({
@@ -16,7 +17,7 @@ export async function listRoles() {
 export async function updateRolePermissions(roleKey: string, permissionKeys: string[]) {
   const role = await prisma.role.findUnique({ where: { key: roleKey } });
   if (!role) {
-    throw new Error("Role not found");
+    throw errors.notFound("Role not found");
   }
 
   const permissions = await prisma.permission.findMany({
@@ -24,7 +25,7 @@ export async function updateRolePermissions(roleKey: string, permissionKeys: str
   });
 
   if (permissions.length !== permissionKeys.length) {
-    throw new Error("One or more permissions not found");
+    throw errors.validation("One or more permissions not found");
   }
 
   await prisma.$transaction([
@@ -50,7 +51,7 @@ export async function deleteRole(roleKey: string) {
   }
   const userCount = await prisma.user.count({ where: { roleId: role.id } });
   if (userCount > 0) {
-    throw new Error("Cannot delete role with assigned users");
+    throw errors.conflict("Cannot delete role with assigned users");
   }
   await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
   await prisma.role.delete({ where: { id: role.id } });

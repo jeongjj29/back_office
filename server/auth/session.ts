@@ -1,15 +1,21 @@
 import { cookies } from "next/headers";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "@lib/prisma";
 import type { User } from "@generated/prisma/client";
 
 export const SESSION_COOKIE = "session_token";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 8; // 8 hours
 
+function sessionSecret() {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("SESSION_SECRET is required for session handling");
+  }
+  return secret;
+}
+
 function hashToken(raw: string): string {
-  const salt = Buffer.alloc(0);
-  const derived = scryptSync(raw, salt, 64);
-  return derived.toString("hex");
+  return createHmac("sha256", sessionSecret()).update(raw).digest("hex");
 }
 
 function tokensMatch(raw: string, hashed: string): boolean {
@@ -34,7 +40,7 @@ export async function createSession(userId: number): Promise<string> {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, rawToken, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
@@ -53,7 +59,7 @@ export async function clearSession() {
   }
   cookieStore.set(SESSION_COOKIE, "", {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     expires: new Date(0),

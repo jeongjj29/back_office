@@ -3,11 +3,19 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@server/auth/session";
 import { SignInForm } from "./sign-in-form";
 
-type SearchParams = Promise<{ next?: string }>;
+type SignInPageProps = {
+  searchParams?: {
+    next?: string | string[];
+  };
+};
 
-export default async function SignInPage(props: { searchParams: SearchParams }) {
-  const searchParams = await props.searchParams;
-  const nextPath = typeof searchParams?.next === "string" ? searchParams.next : "/";
+export default async function SignInPage({ searchParams }: SignInPageProps) {
+  const nextParam = searchParams?.next;
+  const nextPath = Array.isArray(nextParam)
+    ? nextParam[0] || "/"
+    : typeof nextParam === "string"
+      ? nextParam
+      : "/";
   const user = await getCurrentUser();
   if (user) {
     redirect(nextPath || "/");

@@ -3,6 +3,11 @@ import { toResponseError } from "@lib/errors";
 import { requirePermission } from "@server/auth/guards";
 import { createUser, deleteUser, listUsers, updateUser } from "@server/users/service";
 
+function parsePositiveInt(value: unknown) {
+  const num = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
 export async function GET() {
   try {
     await requirePermission("USER_READ");
@@ -38,7 +43,12 @@ export async function PUT(request: Request) {
     await requirePermission("USER_WRITE");
     const body = await request.json().catch(() => ({}));
 
-    const user = await updateUser(Number(body.id), {
+    const id = parsePositiveInt(body.id);
+    if (!id) {
+      return NextResponse.json({ error: { code: "BAD_REQUEST", message: "id must be a positive integer" } }, { status: 400 });
+    }
+
+    const user = await updateUser(id, {
       name: typeof body.name === "string" ? body.name : undefined,
       password: typeof body.password === "string" ? body.password : undefined,
       roleKey: typeof body.roleKey === "string" ? body.roleKey : undefined,
@@ -54,7 +64,7 @@ export async function DELETE(request: Request) {
   try {
     await requirePermission("USER_WRITE");
     const { searchParams } = new URL(request.url);
-    const id = Number(searchParams.get("id"));
+    const id = parsePositiveInt(searchParams.get("id"));
     if (!id) {
       return NextResponse.json({ error: { code: "BAD_REQUEST", message: "id is required" } }, { status: 400 });
     }

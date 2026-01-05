@@ -4,6 +4,11 @@ import { requirePermission } from "@server/auth/guards";
 import { createVendor, deleteVendor, listVendors, updateVendor } from "@server/vendors/service";
 import type { VendorType } from "@generated/prisma/client";
 
+function parsePositiveInt(value: unknown) {
+  const num = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
 export async function GET() {
   try {
     await requirePermission("VENDOR_READ");
@@ -41,7 +46,12 @@ export async function PUT(request: Request) {
   try {
     await requirePermission("VENDOR_WRITE");
     const body = await request.json().catch(() => ({}));
-    const vendor = await updateVendor(Number(body.id), {
+    const id = parsePositiveInt(body.id);
+    if (!id) {
+      return NextResponse.json({ error: { code: "BAD_REQUEST", message: "id must be a positive integer" } }, { status: 400 });
+    }
+
+    const vendor = await updateVendor(id, {
       name: typeof body.name === "string" ? body.name : "",
       type: parseVendorType(body.type),
       phone: typeof body.phone === "string" ? body.phone : undefined,
@@ -68,7 +78,7 @@ export async function DELETE(request: Request) {
   try {
     await requirePermission("VENDOR_WRITE");
     const { searchParams } = new URL(request.url);
-    const id = Number(searchParams.get("id"));
+    const id = parsePositiveInt(searchParams.get("id"));
     if (!id) {
       return NextResponse.json({ error: { code: "BAD_REQUEST", message: "id is required" } }, { status: 400 });
     }

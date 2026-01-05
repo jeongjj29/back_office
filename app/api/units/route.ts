@@ -10,6 +10,11 @@ import {
   updateUnitGroup,
 } from "@server/units/service";
 
+function parsePositiveInt(value: unknown) {
+  const num = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
+
 export async function GET() {
   try {
     await requirePermission("UNIT_READ");
@@ -33,8 +38,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ unitGroup }, { status: 201 });
     }
 
+    const unitGroupId = parsePositiveInt(body.unitGroupId);
+    if (!unitGroupId) {
+      return NextResponse.json(
+        { error: { code: "BAD_REQUEST", message: "unitGroupId must be a positive integer" } },
+        { status: 400 },
+      );
+    }
+
     const unit = await createUnit({
-      unitGroupId: Number(body.unitGroupId),
+      unitGroupId,
       name: typeof body.name === "string" ? body.name : "",
       abbreviation: typeof body.abbreviation === "string" ? body.abbreviation : "",
       factor: typeof body.factor === "string" ? body.factor : 0,
@@ -52,7 +65,14 @@ export async function PUT(request: Request) {
     await requirePermission("UNIT_WRITE");
     const body = await request.json().catch(() => ({}));
     if (body.kind === "group") {
-      const unitGroup = await updateUnitGroup(Number(body.id), String(body.name ?? ""));
+      const id = parsePositiveInt(body.id);
+      if (!id) {
+        return NextResponse.json(
+          { error: { code: "BAD_REQUEST", message: "id must be a positive integer" } },
+          { status: 400 },
+        );
+      }
+      const unitGroup = await updateUnitGroup(id, String(body.name ?? ""));
       return NextResponse.json({ unitGroup });
     }
     return NextResponse.json({ error: { code: "BAD_REQUEST", message: "Unsupported update" } }, { status: 400 });
@@ -67,7 +87,7 @@ export async function DELETE(request: Request) {
     await requirePermission("UNIT_WRITE");
     const { searchParams } = new URL(request.url);
     const kind = searchParams.get("kind");
-    const id = Number(searchParams.get("id"));
+    const id = parsePositiveInt(searchParams.get("id"));
     if (!id) {
       return NextResponse.json({ error: { code: "BAD_REQUEST", message: "id is required" } }, { status: 400 });
     }
